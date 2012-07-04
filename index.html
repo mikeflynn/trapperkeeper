@@ -1,0 +1,473 @@
+<html>
+<head>
+	<title>Trapper Keeper API Help</title>
+	<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	
+	<script type="text/javascript" src="/s/bootstrap/js/bootstrap.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="/s/bootstrap/css/bootstrap.min.css">
+	
+	<link href="/s/prettify/prettify.css" rel="stylesheet">
+	<script src="/s/prettify/prettify.js"></script>
+
+	<script type="text/javascript" src="/s/uploadify/jquery.uploadify-3.1.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="/s/uploadify/uploadify.css">
+
+	
+	<link rel="stylesheet" type="text/css" href="/s/style.css">
+	<script type="text/javascript">
+		$(document).ready(function(){
+			prettyPrint();
+
+			jQuery('a[rel="modal"]').click(function(e){
+				e.preventDefault();
+				jQuery('div#modal .modal-header h3').html('Filter: '+jQuery(this).text());
+				jQuery('div#modal .modal-body').html('').append('<img src="'+jQuery(this).attr('href')+'" />');
+				jQuery('div#modal').modal();
+			});
+
+			jQuery("#example_upload").uploadify({
+				'width': 150,
+				'height': 30,
+				'swf': '/s/uploadify/uploadify.swf',
+				'uploader': '/upload',
+				'buttonText': 'Upload Something Hot!',
+				'uploadLimit': 5,
+				'fileObjName': 'filedata',
+				'formData': {'bucket': 'testing'},
+				'onUploadError': function(file, errorCode, errorMsg, errorString) {
+					console.log(errorString);
+				},
+				'onUploadSuccess': function(file, jsonstr, response) {
+					jsonobj = jQuery.parseJSON(jsonstr);
+					if(jsonobj['data'][file.name]['url']) {
+						jQuery('<img src="/view:thumb'+jsonobj['data'][file.name]['url']+'?w=200" style="display: none" />').appendTo('#example_preview').slideDown(1000);
+					}
+				}
+			});
+
+			jQuery('a#example_delete').click(function(e){
+				e.preventDefault();
+				
+				var image = jQuery('#example_preview img').attr('src');
+				if(!image) return;
+				image = image.replace('/view:thumb/', '');
+
+				// Hit the info endpoint to get a delete key
+				jQuery.getJSON('/info/' + image, function(json) {
+					console.log('/info response:');
+					console.log(json);
+					if(json.data.delete_key) {
+						// Hit the delete endpoint
+						if(json.data.delete_key !== false) {
+							jQuery.ajax({
+								type: 'POST',
+								url: '/delete/' + image,
+								data: 'key='+json.data.delete_key,
+								dataType: 'json',
+								success: function(response) {
+									console.log('/delete response:');
+									console.log(response);
+									if(response.data.success === true)
+									{
+										jQuery('#example_preview img').slideUp(1000, function(){ jQuery(this).remove() });
+									}
+								}
+							});
+						}						
+					}
+				});
+			});
+
+			jQuery('select#example_filter').change(function(e){
+				var image = jQuery('#example_preview img').attr('src');
+				if(!image) return;
+				image = image.replace(/\/view:([a-z_\-]+)\//gi, '');
+				var value = jQuery(this).val();
+				jQuery('#example_preview img').attr('src', '/view:'+value+'/'+image);
+			});
+		});
+
+		$(document).scroll(function(){
+		    // If has not activated (has no attribute "data-top"
+		    if (!$('.subnav').attr('data-top')) {
+		        // If already fixed, then do nothing
+		        if ($('.subnav').hasClass('subnav-fixed')) return;
+		        // Remember top position
+		        var offset = $('.subnav').offset()
+		        $('.subnav').attr('data-top', offset.top);
+		    }
+
+		    if ($('.subnav').attr('data-top') - $('.subnav').outerHeight() <= $(this).scrollTop()) {
+		        $('.subnav').addClass('subnav-fixed');
+		    	$('.subnav .brand').show();
+		    } else {
+		        $('.subnav').removeClass('subnav-fixed');
+		        $('.subnav .brand').hide();
+		    }
+		});
+	</script>
+</head>
+<body data-spy="scroll" data-target=".subnav" data-offset="50">
+<div class="container">
+	<header class="jumbotron row" id="overview">
+		<h1>"Trapper Keeper" File Upload API</h1>
+		<p>
+			Something cool goes here.
+		</p>
+		<div class="subnav">
+			<span class="brand" style="display: none;">Trapper Keeper</span>
+			<ul class="nav nav-pills">
+				<li class="active"><a href="#overview">Overview</a></li>
+				<li><a href="#example">Example</a></li>
+				<li><a href="#api">API</a></li>
+				<li><a href="#filters">Filters</a></li>
+				<li><a href="#bugs">Bugs</a></li>
+			</ul>
+		</div>
+	</header>
+
+	<section id="example" class="row">
+		<div class="page-header">
+			<h2>A Simple Example</h2>
+		</div>
+		<div class="row">
+			<div class="span9">
+				<div id="example_upload"></div>
+				<p>
+					This is a quick example of how easy it is to push a file for later serving. In the example below we used the jQuery plugin "<a href="http://uploadify.com" target="_blank">Uploadify</a>" (flash version).
+				</p>
+				<p>
+					Note that all we're doing (outside of various Uploadify configuration) is setting it to post the file selected to /upload. The one requirement is that we set a "bucket" (more on that below), and we've set this example to use the "testing" bucket.
+				</p>		
+				<p>
+					Feel free to upload something by clicking on the button above and see it appear in the grey box on the right. It's separate bucket that gets cleared out regularly, so just upload whatever...like a picture of your wife/girlfriend maybe? Do it, it will be funny. No one's looking.
+				</p>				
+			</div>
+			<div class="span3">
+				<div id="example_preview"></div>
+				<div style="margin-top: 10px; text-align: center;">
+					<select name="example_filter" id="example_filter">
+						<option value="thumb">No Filter</option>
+						<option value="newsprint">Newsprint</option>
+						<option value="polaroid">Polaroid</option>
+					</select>
+					<a href="#delete" id="example_delete" class="btn btn-danger">Delete Image</a>
+				</div>
+			</div>
+		</div>
+		<br />
+		<div class="row">
+			<div class="span12">
+				<pre class="prettyprint lang-html">
+&lt;script type="text/javascript" src="/s/uploadify/jquery.uploadify-3.1.min.js"&gt;&lt;/script&gt;
+&lt;link rel="stylesheet" type="text/css" href="/s/uploadify/uploadify.css"&gt;
+&lt;script type="text/javascript"&gt;
+jQuery("#example_upload").uploadify({
+	'width': 150,
+	'height': 30,
+	'swf': '/s/uploadify/uploadify.swf',
+	'uploader': '/upload',
+	'buttonText': 'Upload Something Hot!',
+	'uploadLimit': 5,
+	'fileObjName': 'filedata',
+	'formData': {'bucket': 'testing'},
+	'onUploadError': function(file, errorCode, errorMsg, errorString) {
+		console.log(errorString);
+	},
+	'onUploadSuccess': function(file, jsonstr, response) {
+		jsonobj = jQuery.parseJSON(jsonstr);
+		if(jsonobj['data'][file.name]['url']) {
+			jQuery('&lt;img src="/view:thumb'+jsonobj['data'][file.name]['url']+'?w=200" style="display: none" /&gt;').appendTo('#example_preview').slideDown(1000);
+		}
+	}
+});
+
+jQuery('a#example_delete').click(function(e){
+	e.preventDefault();
+	
+	var image = jQuery('#example_preview img').attr('src');
+	if(!image) return;
+	image = image.replace('/view:thumb/', '');
+
+	// Hit the info endpoint to get a delete key
+	jQuery.getJSON('/info/' + image, function(json) {
+		console.log('/info response:');
+		console.log(json);
+		if(json.data.delete_key) {
+			// Hit the delete endpoint
+			if(json.data.delete_key !== false) {
+				jQuery.ajax({
+					type: 'POST',
+					url: '/delete/' + image,
+					data: 'key='+json.data.delete_key,
+					dataType: 'json',
+					success: function(response) {
+						console.log('/delete response:');
+						console.log(response);
+						if(response.data.success === true)
+						{
+							jQuery('#example_preview img').slideUp(1000, function(){ jQuery(this).remove() });
+						}
+					}
+				});
+			}						
+		}
+	});
+});
+
+jQuery('select#example_filter').change(function(e){
+	var image = jQuery('#example_preview img').attr('src');
+	if(!image) return;
+	image = image.replace(/\/view:([a-z_\-]+)\//gi, '');
+	var value = jQuery(this).val();
+	jQuery('#example_preview img').attr('src', '/view:'+value+'/'+image);
+});
+&lt;/script&gt;
+
+...
+
+&lt;div id="example_upload"&gt;&lt;/div&gt;
+&lt;div id="example_preview"&gt;&lt;/div&gt;
+&lt;div style="margin-top: 10px; text-align: center;"&gt;
+	&lt;select name="example_filter" id="example_filter"&gt;
+		&lt;option value="thumb"&gt;No Filter&lt;/option&gt;
+		&lt;option value="newsprint"&gt;Newsprint&lt;/option&gt;
+		&lt;option value="polaroid"&gt;Polaroid&lt;/option&gt;
+	&lt;/select&gt;
+	&lt;a href="#delete" id="example_delete" class="btn btn-danger"&gt;Delete Image&lt;/a&gt;
+&lt;/div&gt;
+				</pre>
+			</div>
+		</div>
+	</section>
+
+	<section id="api" class="row">
+		<div class="page-header">
+			<h2>The API</h2>
+		</div>
+		<p>
+			The API couldn't be any easier to use, with just 4 endpoints (2 of them private) and a simple url interface it almost doesn't need documentation...but here's some anyway.
+		</p>
+		<p>
+			The request url for all endpoints is structured as such: <strong>http://<span style="color: red">[hostname]</span>/<span style="color: orange">[endpoint]</span>/<span style="color: green">[bucket]</span>/<span style="color: blue">[hashed path].[extension]</span>?<span style="color: purple">[any url params]</span></strong>
+		</p>
+		<p>
+			Endpoints marked as public are...public! Meaning the outside world can hit them, but the endpoint marked private can only be hit via machines in our private network, so you'll have to write public interfaces to them if you want users to use them.
+		</p>
+		<div class="row">
+			<div class="span6 endpoint">
+				<h3>/view <span>(public)</span></h3>
+				<p class="description">
+					Use this to actually load any uploaded image in conjuction with the full image url supplied in the upload or response, 
+					and it actually is even easier than that becauase "view" is the default enpoint so you can leave it off and you'll still get your image. 
+				</p>
+				<p>
+					...the one reason you might want to specify the view endpoint in your url though is to take advantage of "<a href="#filters">filters</a>" which allow you to adjust an image on the fly instead of having to upload multiple copies.
+					We talk more about filters a little later.
+				</p>
+				<h5>Request:</h5>
+				<pre>
+/view/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg
+				</pre>
+				<h5>Response:</h5>
+				<img src="/view:thumb/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=200" />		
+			</div>
+			<div class="span6 endpoint">
+				<h3>/upload (public)</h3>
+				<p class="description">
+					Sending POST data to this endpoint will save files in to the server and return a json response with the file's location.
+				</p>
+				<p>
+					The only request data requirement, other than actually sending a file to upload in the , 
+					is the "bucket" parameter which sets the first directory for the file's path. 
+					Not sending a bucket, will result in an error and the file will not be uploaded.
+				</p>
+				<p>
+					The response data, if successful, will be a hash of the files uploaded (we do accept multiple files in a single request) <strong>keyed by the original file name</strong>, with a nested <strong>url</strong> key that stores the file's url.
+				</p>
+				<h5>Request (POST data as PHP vars)</h5>
+				<pre class="prettyprint lang-php">
+$_FILES['filedata'] = [...files];
+$_POST['bucket'] = 'testing';
+				</pre>
+				<h5>Response:</h5>
+				<pre class="prettyprint">
+{
+	"errors": false,
+	"data":
+	{
+		"maverick.jpg":
+		{
+			"url": "/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg"
+		}
+	}
+}
+				</pre>				
+			</div>
+		</div>
+		<div class="row">
+			<div class="span6 endpoint">
+				<h3>/info (private)</h3>
+				<p class="description">
+					This endpoint allows you to get all possible info about a given image hashed path, which includes:
+					<ul>
+						<li>The file type - <i>The content type of the image.</i></li>
+						<li>The file size - <i>The size of the image in bytes.</i></li>
+						<li>The file dimensions - <i>The width and height, in pixels</i></li>
+						<li>A thumbnail link - <i>A pre-crafted link for a standard thumbnail.</i></li>
+						<li>Thumbnail dimensions - <i>The thumbnail's width and height (currently always 250x250)</i></li>
+						<li>The deletion key - <i>A time sensitive, file-specific string that will need to be sent to the delete endpoint when requesting a file removal.</i></li>
+					</ul>
+				</p>
+				<h5>Request:</h5>
+				<pre>
+/info/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg
+				</pre>
+				<h5>Response:</h5>
+				<pre class="prettyprint">
+{
+	"errors": false,
+	"data":
+	{
+		"type": "image/jpeg",
+		"size": "0000",
+		"width": "250",
+		"height": "250",
+		"thumbnail":
+		{
+			"url": "/view:thumb/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg"
+			"width": "250",
+			"height": "250",
+		},
+		"delete_key": "abcdegf123456789"
+	}
+}
+				</pre>
+			</div>
+			<div class="span6 endpoint">
+				<h3>/delete (private)</h3>
+				<p class="description">
+					This endpoint allows you to remove a file from the server if you have a valid key. 
+					This endpoint completely removes the file from the system (there is no "marked as deleted") so this 
+					should only be used in cases where we never want the image to be seen again, like in the case of a take down notice by a user or third party.
+				</p>
+				<p class="description">
+					Like the other endpoints you specify the image taking action on in the url, but you need to request deletion via POST and include the image's delete key.
+					The delete key is a time-sensitive and image-specific string and is only retrieved by using the private "info" endpoint, so you'll have to hit that first before deleting.
+				</p>
+				<h5>Request (POST as PHP vars):</h5>
+				<pre class="prettyprint lang-php">
+# /delete/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg
+$_POST['key'] = "abcdegf123456789";
+				</pre>
+				<h5>Response:</h5>
+				<pre class="prettyprint">
+{
+	"errors": false,
+	"data":
+	{
+		"success": true
+	}
+}
+				</pre>				
+			</div>	
+		</div>
+	</section>
+
+	<section id="filters" class="row">
+		<div class="page-header">
+			<h2>Filters</h2>
+		</div>
+		<p>
+			In short, filters allow for "on the fly" image manipulation. 
+			If you are uploading a user avatar, you know that right now you need to have a 100x100 thumbnail for the detail page, 
+			and a 250x250 format for their profile page, so you pre-process both of those and upload them to the server. But what
+			happens when you now need a 200x150 sized version for a new page type? Do you just make a squished version with CSS? 
+			Write a job to create new versions and then upload each one of what might be thousands? 
+			Filters allow you to skip all of that with just a little bit of processing code.
+		</p>
+		<p>
+			Filters are just a small chunk of custom code that takes the raw, uploaded image as input and writes a new file to a cache location (also delivered as input).
+			This code can use anything (imagemagick is perferred, <a href="http://www.imagemagick.org/Usage/">here's the documentation</a>) as long as it outputs a valid image file at the right location.
+		</p>
+		<p>
+			Using filters couldn't be easier. Just take a regular image url using the view endpoint...
+		</p>
+		<div class="row">
+			<div class="span6">
+				<pre>/view/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg</pre>
+			</div>
+			<div class="span6">
+				<img src="/view:thumb/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=300" />
+			</div>
+		</div>
+		<p>
+			...and then add the name of the filter next to the view endpoint name, separated by a colon. 
+			This url can optionally have any number of url params that the filter uses. 
+			(But there should <strong>always</strong> be defaults in the filter code!)
+		</p>
+		<div class="row">
+			<div class="span6">
+				<pre>/view:polaroid/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=150</pre>
+			</div>
+			<div class="span6">
+				<img src="/view:polaroid/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=150" />
+			</div>
+		</div>
+
+		<p>Here's the code involved to make the "polaroid" filter: (Note the use of escapeshellarg() as if you don't use that, it makes this very insecure)</p>
+		<pre class="prettyprint lang-php">
+function filter_polaroid($image, $cache, $vars = null) {
+	$width = '250';
+
+	if(!empty($vars['w']) && is_numeric($vars['w']))
+	{
+		$width = (string)$vars['w']; 
+	}
+
+	exec("convert ".escapeshellarg($image)." -thumbnail ".escapeshellarg($width)."x -quality 75 -bordercolor snow +polaroid -background black \( +clone -shadow 60x4+4+4 \) +swap -background white -flatten ".escapeshellarg($cache), $output);
+
+	return $output;
+}
+		</pre>
+		<p>
+			That code lives in the specified /filters directory on the file server, 
+			in a directory named after the filter. The directory could also contain 
+			any images that the filter might need, like say a watermark.
+		</p>
+		<h3>Defined Filters:</h3>
+		<p>
+			Below are the currently available filters with a short discription. Click the title for an example image.
+		</p>
+		<ul>
+			<li><a href="/view:banner/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=600&h=260" target="_blank" rel="modal">banner</a> - Returns a wide, thin cropped version of the image.</li>
+			<li><a href="/view:newsprint/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=300" target="_blank" rel="modal">newsprint</a> - Filters the image to look like a dotted newsprint style.</li>
+			<li><a href="/view:polaroid/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=300" target="_blank" rel="modal">polaroid</a> - Wraps image in a polaroid-style border with drop shadow.</li>
+			<li><a href="/view:resize/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=300" target="_blank" rel="modal">resize</a> - Simply resizes an image with a defined width or height.</li>
+			<li><a href="/view:thumb/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg?w=300" target="_blank" rel="modal">thumb</a> - Creates a square thumbanil.</li>
+		</ul>
+	</section>
+
+	<section id="bugs" class="row">
+		<div class="page-header">
+			<h2>Bugs (or Feature Requests)</h2>
+		</div>
+		<p>
+			Any bugs or feature suggestions can be sent to mikeflynn on github.
+		</p>
+		<h4>Roadmap:</h4>
+		<ul>
+			<li>Improved, more intuitive filter interface.</li>
+			<li><strike>Clojure rewrite.</strike> This is it!</li>
+		</ul>
+	</section>			
+</div>
+<div class="modal hide fade" id="modal" style="display: none;">
+	<div class="modal-header" style="margin-top: 10px;">
+		<button type="button" class="close" data-dismiss="modal">x</button>
+		<h3></h3>
+	</div>
+	<div class="modal-body"></div>
+</div>
+</body>
+</html>

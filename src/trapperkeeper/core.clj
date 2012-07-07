@@ -8,7 +8,8 @@
             [compojure.handler :as handler]
             [compojure.response :as response]
             [cheshire.core :as json]
-            [cheshire.custom :as custom])
+            [cheshire.custom :as custom]
+            [trapperkeeper.filters :as filters])
   (:import (java.security MessageDigest)
            (java.util.zip CRC32)
            (java.util Date)

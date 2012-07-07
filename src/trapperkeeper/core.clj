@@ -57,7 +57,10 @@
     (apply vector (.digest (MessageDigest/getInstance "SHA-1") bytes))))
 
 (defn endpoint_view [params]
-  (if (contains? params :bucket)
+  (prn params)
+  (if (contains? params :filter)
+  	(let [filter (apply str (drop 1 (:filter params)))]
+  		(str "This is a filtered image with " filter "!"))
     (image-output (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))))
 
 (defn endpoint_upload [params]
@@ -84,6 +87,7 @@
   (json-output {:key (:key params), :success true}))
 
 (defroutes main-routes
+  (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view params))	
   (GET "/view/:bucket/:dir/:filename" {params :params} (endpoint_view params))
   (GET "/upload" {params :params} (endpoint_upload params))
   (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))

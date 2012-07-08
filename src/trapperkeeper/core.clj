@@ -27,8 +27,8 @@
     types {:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"}]
     (if (contains? types (keyword extension)) ((keyword extension) types))))
 
-(defn json-output [data]
-  (let [body (generate-string {:errors false, :data data})]
+(defn json-output [data errors]
+  (let [body (generate-string {:errors errors, :data data})]
     {:status 200
     :headers {"Content-Type" "application/json"}
     :body body}))
@@ -71,27 +71,29 @@
   (json-output {
     (keyword "file.jpg") {
       :url "/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg"
-      }}))
+      }} nil))
 
 (defn endpoint_info [params]
-  (let [
-    filepath (join "/" [data_path (:bucket params) (:dir params) (:filename params)]) 
-    fh (with-open [rdr (java.io.FileInputStream. filepath)] (javax.imageio.ImageIO/read rdr))]
-    (json-output {
-      :type (content-type filepath)
-      :size (str (.length (io/file filepath))),
-      :width (str (.getWidth fh)),
-      :height (str (.getHeight fh)),
-      :thumbmail {
-        :url (str "/view:thumb/" (:bucket params) "/" (:dir params) "/" (:filename params)),
-        :width "250",
-        :height "250"
-      },
-      :delete_key (gen-delete-key)
-    })))
+  (try
+    (let [
+      filepath (join "/" [data_path (:bucket params) (:dir params) (:filename params)]) 
+      fh (with-open [rdr (java.io.FileInputStream. filepath)] (javax.imageio.ImageIO/read rdr))]
+      (json-output {
+        :type (content-type filepath)
+        :size (str (.length (io/file filepath))),
+        :width (str (.getWidth fh)),
+        :height (str (.getHeight fh)),
+        :thumbmail {
+          :url (str "/view:thumb/" (:bucket params) "/" (:dir params) "/" (:filename params)),
+          :width "250",
+          :height "250"
+        },
+        :delete_key (gen-delete-key)
+      }))
+    (catch Exception e (json-output nil "File not found."))))
 
 (defn endpoint_delete [params]
-  (json-output {:key (:key params), :success true}))
+  (json-output {:key (:key params), :success true} nil))
 
 (defroutes main-routes
   (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view params))	

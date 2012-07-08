@@ -21,11 +21,11 @@
 (def cache_ttl (* 2592000 1000)) ; 30 days of seconds * 1000 because Java is weird.
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 
-(defn content-type [file]
+(defn content-type [filepath]
   (let [
-    extension (take-last 1 (split (.toString file) #"\."))
-    types [:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"]]
-    (if (contains? types extension) ((keyword extension) types))))
+    extension (apply str (take-last 1 (split filepath #"\.")))
+    types {:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"}]
+    (if (contains? types (keyword extension)) ((keyword extension) types))))
 
 (defn json-output [data]
   (let [body (generate-string {:errors false, :data data})]
@@ -41,7 +41,7 @@
           :status 200
           :headers 
           {
-            "Content-Type" (content-type fh),
+            "Content-Type" (content-type filepath),
             "Content-Length" (str (.length fh)),
             "Cache-Control" (str "max-age=\"" cache_ttl "\""),
             "Expires" (str (.format expires_format (new Date (+ (.getTime (new Date)) cache_ttl))) " GMT")
@@ -49,6 +49,9 @@
           :body fh
         }))
     (catch Exception e {:status 404})))
+
+(defn gen-delete-key []
+  "abcdegf123456789")
 
 (defn crc32 [byte-seq]
   (.getValue (doto (CRC32.) (.update (byte-array byte-seq)))))
@@ -71,18 +74,21 @@
       }}))
 
 (defn endpoint_info [params]
-  (json-output {
-    :type "image/jpeg",
-    :size "000",
-    :width "250",
-    :height "250",
-    :thumbmail {
-      :url "/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg",
-      :width "250",
-      :height "250"
-    },
-    :delete_key "abcdegf123456789"
-  }))
+  (let [
+    filepath (join "/" [data_path (:bucket params) (:dir params) (:filename params)]) 
+    fh (with-open [rdr (java.io.FileInputStream. filepath)] (javax.imageio.ImageIO/read rdr))]
+    (json-output {
+      :type (content-type filepath)
+      :size (str (.length (io/file filepath))),
+      :width (str (.getWidth fh)),
+      :height (str (.getHeight fh)),
+      :thumbmail {
+        :url (str "/view:thumb/" (:bucket params) "/" (:dir params) "/" (:filename params)),
+        :width "250",
+        :height "250"
+      },
+      :delete_key (gen-delete-key)
+    })))
 
 (defn endpoint_delete [params]
   (json-output {:key (:key params), :success true}))

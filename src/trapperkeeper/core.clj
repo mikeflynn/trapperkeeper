@@ -89,7 +89,7 @@
           :height "250"
         },
         :delete_key (gen-delete-key)
-      }))
+      } nil))
     (catch Exception e (json-output nil "File not found."))))
 
 (defn endpoint_delete [params]

@@ -15,9 +15,9 @@
            (java.util Date)
            (java.text SimpleDateFormat)))
 
-(def base_path "/var/www/html/announcemedia/fileserver")
-(def data_path "/var/www/html/announcemedia/fileserver/data")
-(def cache_path "/var/www/html/announcemedia/fileserver/cache")
+(def base_path ".")
+(def data_path "./data")
+(def cache_path "./cache")
 (def cache_ttl (* 2592000 1000)) ; 30 days of seconds * 1000 because Java is weird.
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 

@@ -21,6 +21,9 @@
 (def cache_ttl (* 2592000 1000)) ; 30 days of seconds * 1000 because Java is weird.
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 
+(defn make-path [params]
+  (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
+
 (defn content-type [filepath]
   (let [
     extension (apply str (take-last 1 (split filepath #"\.")))
@@ -65,7 +68,7 @@
   (if (contains? params :filter)
   	(let [filter (apply str (drop 1 (:filter params)))]
   		(str "This is a filtered image with " filter "!"))
-    (image-output (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))))
+    (image-output (make-path params)))))
 
 (defn endpoint_upload [params]
   (json-output {
@@ -76,7 +79,7 @@
 (defn endpoint_info [params]
   (try
     (let [
-      filepath (join "/" [data_path (:bucket params) (:dir params) (:filename params)]) 
+      filepath (make-path params)
       fh (with-open [rdr (java.io.FileInputStream. filepath)] (javax.imageio.ImageIO/read rdr))]
       (json-output {
         :type (content-type filepath)
@@ -95,7 +98,7 @@
 (defn endpoint_delete [params]
   (try
     (let [
-      filepath (join "/" [data_path (:bucket params) (:dir params) (:filename params)]) 
+      filepath (make-path params)
       fh (io/file filepath)]
       (if (= (gen-delete-key) (:key params))
         (if (io/delete-file fh)

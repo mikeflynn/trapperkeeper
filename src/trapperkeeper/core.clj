@@ -93,7 +93,16 @@
     (catch Exception e (json-output nil "File not found."))))
 
 (defn endpoint_delete [params]
-  (json-output {:key (:key params), :success true} nil))
+  (try
+    (let [
+      filepath (join "/" [data_path (:bucket params) (:dir params) (:filename params)]) 
+      fh (io/file filepath)]
+      (if (= (gen-delete-key) (:key params))
+        (if (io/delete-file fh)
+          (json-output {:key (:key params), :success true} nil)
+          (json-output {:key (:key params), :success false} nil))
+        (json-output nil "Invalid deletion key.")))
+  (catch Exception e (json-output nil "File not found."))))
 
 (defroutes main-routes
   (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view params))	
@@ -101,7 +110,7 @@
   (GET "/upload" {params :params} (endpoint_upload params))
   (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))
   (GET "/delete/:bucket/:dir/:filename" {params :params} (endpoint_delete params))
-  (GET "/" {params :params} (endpoint_view params))
+  (GET "/:bucket/:dir/:filename" {params :params} (endpoint_view params))
   (route/files "/")
   (route/resources "/s" {:root "./public/s"})
   (route/not-found "Page not found"))

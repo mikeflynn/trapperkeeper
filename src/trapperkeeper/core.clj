@@ -77,11 +77,18 @@
 (defn gen-delete-key [filepath]
   (sha1 (str filepath (* (.length (io/file filepath)) (count filepath)))))
 
+(defn run-filter [filtername params outputpath]
+; 1: Check for cache, 2: Check for filter 3: Run filter 4: Return success
+
+  )
+
 (defn endpoint_view [params]
-  (prn params)
   (if (contains? params :filter)
-    (str "This is a filtered image with " filter "!"))
-    (image-output (make-path params)))
+    (let [cache-filepath (make-cache-path params)]
+      (if (run-filter params cache-filepath)
+        (image-output cache-filepath)
+        (image-output (make-path params))))
+    (image-output (make-path params))))
 
 (defn endpoint_upload [params]
   (json-output {

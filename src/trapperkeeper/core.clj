@@ -22,7 +22,7 @@
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 
 (defn make-cache-path [params]
-  )
+ (join "/" [cache_path (:bucket params) (:dir params) (:filename params)])))
 
 (defn make-path [params]
   (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
@@ -56,15 +56,21 @@
         }))
     (catch Exception e {:status 404})))
 
-(defn gen-delete-key []
-  "abcdegf123456789")
-
 (defn crc32 [byte-seq]
   (.getValue (doto (CRC32.) (.update (byte-array byte-seq)))))
 
-(defn sha1 [obj] 
-  (let [bytes (.getBytes (with-out-str (pr obj)))] 
-    (apply vector (.digest (MessageDigest/getInstance "SHA-1") bytes))))
+(defn sha1 [s]
+"https://gist.github.com/1472865"
+  (->> (-> "sha1"
+           java.security.MessageDigest/getInstance
+           (.digest (.getBytes s)))
+       (map #(.substring
+              (Integer/toString
+               (+ (bit-and % 0xff) 0x100) 16) 1))
+       (apply str)))
+
+(defn gen-delete-key [filepath]
+  (sha1 (str filepath (* (.length (io/file filepath)) (count filepath)))))
 
 (defn endpoint_view [params]
   (prn params)
@@ -94,7 +100,7 @@
           :width "250",
           :height "250"
         },
-        :delete_key (gen-delete-key)
+        :delete_key (gen-delete-key filepath)
       } nil))
     (catch Exception e (json-output nil "File not found."))))
 

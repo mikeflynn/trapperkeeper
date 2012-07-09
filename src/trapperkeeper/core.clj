@@ -22,7 +22,12 @@
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 
 (defn make-cache-path [params]
- (join "/" [cache_path (:bucket params) (:dir params) (:filename params)])))
+  (let [
+    dir (join "/" [cache_path (:bucket params) (:dir params)])
+    filename (apply str (first (split (:filename params) #"\.")))
+    filter-params (apply str (map (fn [[k v]] (str "_" (name k) "_" v)) (dissoc params :bucket :dir :filename)))
+    extension (apply str (take-last 1 (split (:filename params) #"\.")))]
+    (str dir "/" filename filter-params "." extension)))
 
 (defn make-path [params]
   (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
@@ -75,9 +80,8 @@
 (defn endpoint_view [params]
   (prn params)
   (if (contains? params :filter)
-  	(let [filter (apply str (drop 1 (:filter params)))]
-  		(str "This is a filtered image with " filter "!"))
-    (image-output (make-path params))))
+    (str "This is a filtered image with " filter "!"))
+    (image-output (make-path params)))
 
 (defn endpoint_upload [params]
   (json-output {
@@ -117,7 +121,7 @@
   (catch Exception e (json-output nil "File not found."))))
 
 (defroutes main-routes
-  (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view params))	
+  (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter params)))})))
   (GET "/view/:bucket/:dir/:filename" {params :params} (endpoint_view params))
   (GET "/upload" {params :params} (endpoint_upload params))
   (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))

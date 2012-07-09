@@ -68,7 +68,7 @@
   (if (contains? params :filter)
   	(let [filter (apply str (drop 1 (:filter params)))]
   		(str "This is a filtered image with " filter "!"))
-    (image-output (make-path params)))))
+    (image-output (make-path params))))
 
 (defn endpoint_upload [params]
   (json-output {

@@ -21,6 +21,9 @@
 (def cache_ttl (* 2592000 1000)) ; 30 days of seconds * 1000 because Java is weird.
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 
+(defn make-cache-path [params]
+  )
+
 (defn make-path [params]
   (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
 

@@ -2,7 +2,6 @@ trapperkeeper
 =============
 
 To Do
-* Delete
-* Upload (duh)
+* Upload
 * Filters
 * Full page image display

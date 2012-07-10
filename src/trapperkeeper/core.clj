@@ -77,15 +77,20 @@
 (defn gen-delete-key [filepath]
   (sha1 (str filepath (* (.length (io/file filepath)) (count filepath)))))
 
-(defn run-filter [filtername params outputpath]
+(defn run-filter [filtername params outpath inpath]
 ; 1: Check for cache, 2: Check for filter 3: Run filter 4: Return success
-
-  )
+  (try
+    (if (.exists (io/file outpath))
+      true
+      (if (clojure.test/function? (symbol (str "filter/" filtername)))
+        ((ns-resolve *ns* (symbol (str "filter/" filtername))) params inpath outputpath)
+        false))
+  (catch Exception e false)))
 
 (defn endpoint_view [params]
   (if (contains? params :filter)
     (let [cache-filepath (make-cache-path params)]
-      (if (run-filter params cache-filepath)
+      (if (run-filter params cache-filepath (make-path params))
         (image-output cache-filepath)
         (image-output (make-path params))))
     (image-output (make-path params))))

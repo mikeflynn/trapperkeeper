@@ -1,14 +1,19 @@
 (ns trapperkeeper.filters
   (:use [clojure.java.shell :only [sh]]))
 
-(defn resize [params outfile infile]
+(defn resize [params infile outfile]
 ; convert -resize '250'x -quality '75' -format jpg '$infile' '$outfile'
   (let [
-    defaults {:w 250, :q 75}
-    args (merge defaults params)]
-    (if (= 0 (:exit (sh "convert" "-resize" (str (:w args) "x") (str "-quality '" (:q args) "'") "-format jpg" infile outfile)))
-      true
-      false)))
+    defaults {:w "250", :q "75"}
+    args (merge defaults params)
+    command (sh "convert" "-resize" (str (:w args) "x") "-quality" (:q args) "-format" "jpg" infile outfile)]
+    (if (= 0 (:exit command))
+      (doall
+        (prn (str "FILTER INFO: Applied " (:filter params)))
+        (boolean false))
+      (doall
+        (prn (str "FILTER ERROR: " command))
+        (boolean false)))))
 
 (defn banner [params outfile infile]
 ; convert '$infile' -resize '100'x -gravity Center -crop '100'x'25'+0+0 +repage -format jpg -quality 91 '$outfile'	

@@ -4,12 +4,13 @@
         [clojure.tools.logging :only [info error]]
         [clojure.string :only (join split)])
   (:require [clojure.java.io :as io]
+            [clojure.test :as test]
             [compojure.route :as route]
             [compojure.handler :as handler]
             [compojure.response :as response]
             [cheshire.core :as json]
             [cheshire.custom :as custom]
-            [trapperkeeper.filters :as filters])
+            [trapperkeeper.filters :as filter])
   (:import (java.security MessageDigest)
            (java.util.zip CRC32)
            (java.util Date)
@@ -31,6 +32,10 @@
 
 (defn make-path [params]
   (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
+
+(defn make-dir [filepath]
+"Take path and create all the necessary directories."
+  )
 
 (defn content-type [filepath]
   (let [
@@ -77,22 +82,24 @@
 (defn gen-delete-key [filepath]
   (sha1 (str filepath (* (.length (io/file filepath)) (count filepath)))))
 
-(defn run-filter [filtername params outpath inpath]
+(defn run-filter [filtername params inpath outpath]
 ; 1: Check for cache, 2: Check for filter 3: Run filter 4: Return success
-  (try
+;  (try
     (if (.exists (io/file outpath))
-      true
-      (if (clojure.test/function? (symbol (str "filter/" filtername)))
-        ((ns-resolve *ns* (symbol (str "filter/" filtername))) params inpath outputpath)
-        false))
-  (catch Exception e false)))
+      (boolean true)
+      (if (nil? (resolve (symbol (str "trapperkeeper.filters/" filtername))))
+        (boolean false)
+        ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath))))
+;  (catch Exception e (boolean false))))
 
 (defn endpoint_view [params]
   (if (contains? params :filter)
-    (let [cache-filepath (make-cache-path params)]
-      (if (run-filter params cache-filepath (make-path params))
+    (let [
+      cache-filepath (make-cache-path params)
+      image-filepath (make-path params)]
+      (if (run-filter (:filter params) params image-filepath cache-filepath)
         (image-output cache-filepath)
-        (image-output (make-path params))))
+        (image-output image-filepath)))
     (image-output (make-path params))))
 
 (defn endpoint_upload [params]

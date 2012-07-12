@@ -1,7 +1,16 @@
 trapperkeeper
 =============
 
+What?
+-----
+
+Why?
+----
+
+How?
+----
+
 To Do
-* Upload
-* Filters
-* Full page image display
+-----
+1. Upload
+2. Full page image display

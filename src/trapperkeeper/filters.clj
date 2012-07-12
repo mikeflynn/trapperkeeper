@@ -8,12 +8,8 @@
     args (merge defaults params)
     command (sh "convert" "-resize" (str (:w args) "x") "-quality" (:q args) "-format" "jpg" infile outfile)]
     (if (= 0 (:exit command))
-      (doall
-        (prn (str "FILTER INFO: Applied " (:filter params)))
-        (boolean false))
-      (doall
-        (prn (str "FILTER ERROR: " command))
-        (boolean false)))))
+        true
+        false)))
 
 (defn banner [params outfile infile]
 ; convert '$infile' -resize '100'x -gravity Center -crop '100'x'25'+0+0 +repage -format jpg -quality 91 '$outfile'	

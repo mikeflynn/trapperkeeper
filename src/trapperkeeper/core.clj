@@ -2,7 +2,8 @@
   (:use [compojure.core]
         [cheshire.core]
         [clojure.tools.logging :only [info error]]
-        [clojure.string :only (join split)])
+        [clojure.string :only (join split)]
+        [clojure.java.shell :only [sh]])
   (:require [clojure.java.io :as io]
             [clojure.test :as test]
             [compojure.route :as route]
@@ -35,7 +36,10 @@
 
 (defn make-dir [filepath]
 "Take path and create all the necessary directories."
-  )
+  (let [dir (join "/" (drop-last (split filepath #"/")))]
+    (if (= 0 (:exit (sh "mkdir" "-p" dir)))
+      (boolean true)
+      (boolean false))))
 
 (defn content-type [filepath]
   (let [
@@ -89,7 +93,9 @@
       (boolean true)
       (if (nil? (resolve (symbol (str "trapperkeeper.filters/" filtername))))
         (boolean false)
-        ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath))))
+        (do
+          (make-dir outpath)
+          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath)))))
 ;  (catch Exception e (boolean false))))
 
 (defn endpoint_view [params]

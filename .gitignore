@@ -4,5 +4,5 @@ pom.xml
 /classes/
 .lein-deps-sum
 .lein-plugins
-./data/*
-./cache/*
+data/*
+cache/*

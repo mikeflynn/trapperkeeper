@@ -88,15 +88,15 @@
 
 (defn run-filter [filtername params inpath outpath]
 ; 1: Check for cache, 2: Check for filter 3: Run filter 4: Return success
-;  (try
+  (try
     (if (.exists (io/file outpath))
       (boolean true)
       (if (nil? (resolve (symbol (str "trapperkeeper.filters/" filtername))))
         (boolean false)
         (do
           (make-dir outpath)
-          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath)))))
-;  (catch Exception e (boolean false))))
+          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath))))
+  (catch Exception e (boolean false))))
 
 (defn endpoint_view [params]
   (if (contains? params :filter)

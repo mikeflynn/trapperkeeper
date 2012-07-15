@@ -24,6 +24,7 @@
 (def cache_ttl (* 2592000 1000)) ; 30 days of seconds * 1000 because Java is weird.
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
 (def allowed-types {:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"})
+(def max-filesize 5000000)
 
 (defn make-cache-path [params]
   (let [
@@ -72,8 +73,8 @@
         }))
     (catch Exception e {:status 404})))
 
-(defn crc32 [byte-seq]
-  (.getValue (doto (CRC32.) (.update (byte-array byte-seq)))))
+(defn crc32 [string]
+  (.getValue (doto (CRC32.) (.update (byte-array (.getBytes string))))))
 
 (defn sha1 [s]
 "https://gist.github.com/1472865"
@@ -104,10 +105,10 @@
           ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath))))
   (catch Exception e (do (prn (str "Caught exception: " (.getMessage e))) (boolean false)))))
 
-(defn checkfile [filepath]
+(defn checkfile [file filename]
 "Ensure the uploaded file is an image. Return boolean."
-  (if (content-type filepath)
-    (let [fh (with-open [rdr (java.io.FileInputStream. filepath)] (javax.imageio.ImageIO/read rdr))]
+  (if (content-type filename)
+    (let [fh (javax.imageio.ImageIO/read file)]
       (if (nil? (.getHeight fh))
         (boolean false)
         (boolean true)))
@@ -127,20 +128,23 @@
 
 (defn endpoint_upload [params]
   (try
-    (if (contains? params :filedata)
+    (if (and (contains? params "filedata") (contains? params "bucket"))
       (let [
-        fileobj (params :filedata)
-        temp-path (fileobj :tempfile)
+        fileobj (get params "filedata")
+        temp-file (fileobj :tempfile)
         file-name (fileobj :filename)
         file-ext (apply str (take-last 1 (split file-name #"\.")))
-        new-path (str (:bucket params) "/" (crc32 file-name) "/" (sha1 (io/file fileobj)) "." file-ext)]
-        (if (checkfile temp-path)
+        new-path (str (get params "bucket") "/" (crc32 file-name) "/" (sha1 (slurp temp-file)) "." file-ext)]
+        (if (and (<= (fileobj :size) max-filesize) (checkfile temp-file file-name))
           (do
-            (io/copy temp-path (str data_path "/" new-path))
+            (make-dir (str data_path "/" new-path))
+            (io/copy temp-file (io/file (str data_path "/" new-path)))
             (json-output {
               (keyword file-name) {
                 :url (str "/" new-path)
-              }} nil))))
+              }} nil))
+          (do
+            (json-output nil "This isn't a valid filetype or is too large for upload."))))
       (json-output nil "No file to process."))
     (catch Exception e (json-output nil "Couldn't process file."))))
 

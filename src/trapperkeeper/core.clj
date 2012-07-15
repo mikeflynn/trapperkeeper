@@ -27,7 +27,7 @@
   (let [
     dir (join "/" [cache_path (:bucket params) (:dir params)])
     filename (apply str (first (split (:filename params) #"\.")))
-    filter-params (apply str (map (fn [[k v]] (str "_" (name k) "_" v)) (dissoc params :bucket :dir :filename)))
+    filter-params (apply str (map (fn [[k v]] (str "_" (name k) "_" v)) (dissoc params :bucket :dir :filename :no-cache)))
     extension (apply str (take-last 1 (split (:filename params) #"\.")))]
     (str dir "/" filename filter-params "." extension)))
 
@@ -88,15 +88,20 @@
 
 (defn run-filter [filtername params inpath outpath]
 ; 1: Check for cache, 2: Check for filter 3: Run filter 4: Return success
-  (try
-    (if (.exists (io/file outpath))
-      (boolean true)
+;  (try
+    (if (and (not (contains? params :no-cache)) (.exists (io/file outpath)))
+      (do
+        (prn "Returning cached filter output.")
+        (boolean true))
       (if (nil? (resolve (symbol (str "trapperkeeper.filters/" filtername))))
-        (boolean false)
         (do
+          (prn (str "No filter function found for " filtername))
+          (boolean false))
+        (do
+          (prn (str "Found filter " filtername))
           (make-dir outpath)
-          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath))))
-  (catch Exception e (boolean false))))
+          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath)))))
+;  (catch Exception e (do (prn (str "Caught exception: " (.getMessage e))) (boolean false)))))
 
 (defn endpoint_view [params]
   (if (contains? params :filter)

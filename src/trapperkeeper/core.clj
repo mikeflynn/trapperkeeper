@@ -114,14 +114,16 @@
     (boolean false)))
 
 (defn endpoint_view [params]
-  (if (contains? params :filter)
-    (let [
-      cache-filepath (make-cache-path params)
-      image-filepath (make-path params)]
-      (if (run-filter (:filter params) params image-filepath cache-filepath)
-        (image-output cache-filepath)
-        (image-output image-filepath)))
-    (image-output (make-path params))))
+  (let [image-filepath (make-path params)]
+    (if (.exists (io/file image-filepath))
+      (if (contains? params :filter)
+        (let [
+          cache-filepath (make-cache-path params)]
+          (if (run-filter (:filter params) params image-filepath cache-filepath)
+            (image-output cache-filepath)
+            (image-output image-filepath)))
+        (image-output image-filepath))
+    {:status 404})))
 
 (defn endpoint_upload [params]
   (try
@@ -174,6 +176,8 @@
   (catch Exception e (json-output nil "File not found."))))
 
 (defroutes main-routes
+  (route/files "/")
+  (route/resources "/")  
   (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter params)))})))
   (GET "/view/:bucket/:dir/:filename" {params :params} (endpoint_view params))
   (mp/wrap-multipart-params
@@ -181,8 +185,6 @@
   (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))
   (GET "/delete/:bucket/:dir/:filename" {params :params} (endpoint_delete params))
   (GET "/:bucket/:dir/:filename" {params :params} (endpoint_view params))
-  (route/files "/")
-  (route/resources "/s" {:root "./public/s"})
   (route/not-found "Page not found"))
 
 (def app

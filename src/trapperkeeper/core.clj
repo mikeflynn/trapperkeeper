@@ -9,6 +9,7 @@
             [compojure.route :as route]
             [compojure.handler :as handler]
             [compojure.response :as response]
+            [ring.middleware [multipart-params :as mp]]
             [cheshire.core :as json]
             [cheshire.custom :as custom]
             [trapperkeeper.filters :as filter])
@@ -22,6 +23,7 @@
 (def cache_path "./cache")
 (def cache_ttl (* 2592000 1000)) ; 30 days of seconds * 1000 because Java is weird.
 (def expires_format (new SimpleDateFormat "EEE, d MMM yyyy HH:mm:ss"))
+(def allowed-types {:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"})
 
 (defn make-cache-path [params]
   (let [
@@ -42,10 +44,10 @@
       (boolean false))))
 
 (defn content-type [filepath]
-  (let [
-    extension (apply str (take-last 1 (split filepath #"\.")))
-    types {:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"}]
-    (if (contains? types (keyword extension)) ((keyword extension) types))))
+  (let [extension (apply str (take-last 1 (split filepath #"\.")))]
+    (if
+      (contains? allowed-types (keyword extension)) ((keyword extension) allowed-types)
+      (boolean false))))
 
 (defn json-output [data errors]
   (let [body (generate-string {:errors errors, :data data})]
@@ -87,8 +89,7 @@
   (sha1 (str filepath (* (.length (io/file filepath)) (count filepath)))))
 
 (defn run-filter [filtername params inpath outpath]
-; 1: Check for cache, 2: Check for filter 3: Run filter 4: Return success
-;  (try
+  (try
     (if (and (not (contains? params :no-cache)) (.exists (io/file outpath)))
       (do
         (prn "Returning cached filter output.")
@@ -100,8 +101,17 @@
         (do
           (prn (str "Found filter " filtername))
           (make-dir outpath)
-          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath)))))
-;  (catch Exception e (do (prn (str "Caught exception: " (.getMessage e))) (boolean false)))))
+          ((resolve (symbol (str "trapperkeeper.filters/" filtername))) params inpath outpath))))
+  (catch Exception e (do (prn (str "Caught exception: " (.getMessage e))) (boolean false)))))
+
+(defn checkfile [filepath]
+"Ensure the uploaded file is an image. Return boolean."
+  (if (content-type filepath)
+    (let [fh (with-open [rdr (java.io.FileInputStream. filepath)] (javax.imageio.ImageIO/read rdr))]
+      (if (nil? (.getHeight fh))
+        (boolean false)
+        (boolean true)))
+    (boolean false)))
 
 (defn endpoint_view [params]
   (if (contains? params :filter)
@@ -114,10 +124,23 @@
     (image-output (make-path params))))
 
 (defn endpoint_upload [params]
-  (json-output {
-    (keyword "file.jpg") {
-      :url "/testing/12864d5b/6d69f865ce73aee58e922499e2a45723c423ce8d.jpg"
-      }} nil))
+  (try
+    (if (contains? params :filedata)
+      (let [
+        fileobj (params :filedata)
+        temp-path (fileobj :tempfile)
+        file-name (fileobj :filename)
+        file-ext (apply str (take-last 1 (split file-name #"\.")))
+        new-path (str (:bucket params) "/" (crc32 file-name) "/" (sha1 (io/file fileobj)) "." file-ext)]
+        (if (checkfile temp-path)
+          (do
+            (io/copy temp-path (str data_path "/" new-path))
+            (json-output {
+              (keyword file-name) {
+                :url (str "/" new-path)
+              }} nil))))
+      (json-output nil "No file to process."))
+    (catch Exception e (json-output nil "Couldn't process file."))))
 
 (defn endpoint_info [params]
   (try
@@ -153,7 +176,8 @@
 (defroutes main-routes
   (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter params)))})))
   (GET "/view/:bucket/:dir/:filename" {params :params} (endpoint_view params))
-  (GET "/upload" {params :params} (endpoint_upload params))
+  (mp/wrap-multipart-params
+    (POST "/upload" {params :params} (endpoint_upload params)))
   (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))
   (GET "/delete/:bucket/:dir/:filename" {params :params} (endpoint_delete params))
   (GET "/:bucket/:dir/:filename" {params :params} (endpoint_view params))

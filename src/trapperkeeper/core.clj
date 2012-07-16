@@ -2,10 +2,9 @@
   (:use [compojure.core]
         [cheshire.core]
         [clojure.tools.logging :only [info error]]
-        [clojure.string :only (join split)]
         [clojure.java.shell :only [sh]])
   (:require [clojure.java.io :as io]
-            [clojure.test :as test]
+            [clojure.string :as string]
             [compojure.route :as route]
             [compojure.handler :as handler]
             [compojure.response :as response]
@@ -28,24 +27,24 @@
 
 (defn make-cache-path [params]
   (let [
-    dir (join "/" [cache_path (:bucket params) (:dir params)])
-    filename (apply str (first (split (:filename params) #"\.")))
+    dir (string/join "/" [cache_path (:bucket params) (:dir params)])
+    filename (apply str (first (string/split (:filename params) #"\.")))
     filter-params (apply str (map (fn [[k v]] (str "_" (name k) "_" v)) (dissoc params :bucket :dir :filename :no-cache)))
-    extension (apply str (take-last 1 (split (:filename params) #"\.")))]
+    extension (apply str (take-last 1 (string/split (:filename params) #"\.")))]
     (str dir "/" filename filter-params "." extension)))
 
 (defn make-path [params]
-  (join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
+  (string/join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
 
 (defn make-dir [filepath]
 "Take path and create all the necessary directories."
-  (let [dir (join "/" (drop-last (split filepath #"/")))]
+  (let [dir (string/join "/" (drop-last (string/split filepath #"/")))]
     (if (= 0 (:exit (sh "mkdir" "-p" dir)))
       (boolean true)
       (boolean false))))
 
 (defn content-type [filepath]
-  (let [extension (apply str (take-last 1 (split filepath #"\.")))]
+  (let [extension (apply str (take-last 1 (string/split filepath #"\.")))]
     (if
       (contains? allowed-types (keyword extension)) ((keyword extension) allowed-types)
       (boolean false))))
@@ -133,7 +132,7 @@
         fileobj (get params "filedata")
         temp-file (fileobj :tempfile)
         file-name (fileobj :filename)
-        file-ext (apply str (take-last 1 (split file-name #"\.")))
+        file-ext (apply str (take-last 1 (string/split file-name #"\.")))
         new-path (str (get params "bucket") "/" (crc32 file-name) "/" (sha1 (slurp temp-file)) "." file-ext)]
         (if (and (<= (fileobj :size) max-filesize) (checkfile temp-file file-name))
           (do
@@ -158,7 +157,7 @@
         :size (str (.length (io/file filepath))),
         :width (str (.getWidth fh)),
         :height (str (.getHeight fh)),
-        :thumbmail {
+        :thumbnail {
           :url (str "/view:thumb/" (:bucket params) "/" (:dir params) "/" (:filename params)),
           :width "250",
           :height "250"
@@ -179,11 +178,24 @@
         (json-output nil "Invalid deletion key.")))
   (catch Exception e (json-output nil "File not found."))))
 
+(defn endpoint_page [params]
+  (try
+    (let [
+      url (str "/" (:bucket params) "/" (:dir params) "/" (:filename params))
+      url475 (str "/view:resize" url "?w=475")
+      html (slurp "resources/page.html")]
+      {
+        :status 200
+        :body (string/replace html "##URL475##" url475)
+      })
+  (catch Exception e {:status 404})))
+
 (defroutes main-routes
   (route/files "/")
-  (route/resources "/")  
+  (route/resources "/")
   (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter params)))})))
   (GET "/view/:bucket/:dir/:filename" {params :params} (endpoint_view params))
+  (GET "/page/:bucket/:dir/:filename" {params :params} (endpoint_page params))
   (mp/wrap-multipart-params
     (POST "/upload" {params :params} (endpoint_upload params)))
   (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))

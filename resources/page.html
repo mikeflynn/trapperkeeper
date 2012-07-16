@@ -1,0 +1,91 @@
+<html>
+<head>
+	<title>Trapper Keeper</title>
+	<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+
+	<script type="text/javascript" src="/s/bootstrap/js/bootstrap.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="/s/bootstrap/css/bootstrap.min.css">
+
+	<link rel="stylesheet" type="text/css" href="/s/page.css">
+	<script type="text/javascript">
+	jQuery(document).ready(function(){
+		var imagelink = window.location.pathname.replace('/page', '');
+		jQuery.getJSON('/info' + imagelink, function(json) {
+			console.log(json);
+			jQuery('#directlink').val(window.location.protocol + '//' + window.location.host + imagelink);
+			if(json.data.thumbnail.url) jQuery('#thumblink').val(window.location.protocol + '//' + window.location.host + json.data.thumbnail.url)
+			if(json.data.type) jQuery('#filetype').children('td').eq(1).html(json.data.type);
+			if(json.data.size) jQuery('#filesize').children('td').eq(1).html(json.data.size/1000 + ' kb');
+			if(json.data.height && json.data.width) {
+				jQuery('#dimensions').children('td').eq(1).html(json.data.width + 'x' + json.data.height + ' px');
+			}
+		});
+		jQuery('td.url input').focus(function(){
+			jQuery(this).select();
+		});
+	});
+	</script>
+</head>
+<body>
+<div class="navbar">
+	<div class="navbar-inner">
+		<div class="container">
+			<a href="#" class="brand">Trapper Keeper</a>
+			<div class="nav">
+				<ul class="nav">
+					<li><p class="navbar-text"></p></li>
+					<li><a href="/help.html">API</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="container">
+	<div class="row" style="">
+		<div class="span8">
+			<img src="##URL475##">
+		</div>
+		<div class="span4">
+			<table id="info" class="table table-bordered table-striped">
+				<tbody>
+					<tr id="filetype">
+						<td>File Type</td>
+						<td></td>
+					</tr>
+					<tr id="filesize">
+						<td>File Size</td>
+						<td></td>
+					</tr>
+					<tr id="dimensions">
+						<td>Dimensions</td>
+						<td></td>
+					</tr>
+				</tbody>
+			</table>
+
+			<table id="urls" class="table table-bordered table-striped">
+				<tbody>
+					<tr>
+						<td>Direct Link</td>
+						<td><input id="directlink" type="text" value=""></td>
+					</tr>
+					<tr>
+						<td>Thumbnail</td>
+						<td><input id="thumblink" type="text" value=""></td>
+					</tr>
+				</tbody>
+			</table>			
+		</div>
+	</div>
+	<footer class="footer">
+		<p>
+			Trapper Keeper was developed by Mike Flynn (<a href="http://twitter.com/mikeflynn_">@mikeflynn_</a>).
+		</p>
+		<p>
+			Get the source here: <a href="http://mikeflynn.github.com/trapperkeeper">mikeflynn.github.com/trapperkeeper</a> 
+		</p>
+	</footer>
+</div>
+</body>
+</html>

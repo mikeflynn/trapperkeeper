@@ -21,7 +21,7 @@ How?
 
 To Do
 -----
-1. Full page image display
+1. Refactor filters (multimethod? Something else?).
 2. Move configuration options to a config file outside of the code.
 3. Add real logging (instead of using std out)
-4. Refactor filters.
+4. Upload war file.

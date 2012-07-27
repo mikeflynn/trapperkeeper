@@ -25,3 +25,5 @@ To Do
 2. Move configuration options to a config file outside of the code.
 3. Add real logging (instead of using std out)
 4. Upload war file.
+5. Add option to keep original filename.
+6. BUG: Allow uppercase extensions!

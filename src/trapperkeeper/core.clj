@@ -45,9 +45,9 @@
       (boolean false))))
 
 (defn content-type [filepath]
-  (let [extension (apply str (take-last 1 (string/split filepath #"\.")))]
-    (if
-      (contains? allowed-types (keyword extension)) ((keyword extension) allowed-types)
+  (let [extension (string/lower-case (apply str (take-last 1 (string/split filepath #"\."))))]
+    (if (contains? allowed-types (keyword extension))
+      ((keyword extension) allowed-types)
       (boolean false))))
 
 (defn json-output [data errors]

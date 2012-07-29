@@ -1,6 +1,7 @@
 (ns trapperkeeper.core
   (:use [compojure.core]
         [cheshire.core]
+        [clojure.set :only [rename-keys]]
         [clojure.tools.logging :only [info error]]
         [clojure.java.shell :only [sh]])
   (:require [clojure.java.io :as io]
@@ -193,14 +194,14 @@
 (defroutes main-routes
   (route/files "/")
   (route/resources "/")
-  (GET "/view:filter/:bucket/:dir/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter params)))})))
-  (GET "/view/:bucket/:dir/:filename" {params :params} (endpoint_view params))
-  (GET "/page/:bucket/:dir/:filename" {params :params} (endpoint_page params))
+  (GET "/view:filter/:bucket/*/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter (rename-keys params {:* :dir}))))})))
+  (GET "/view/:bucket/*/:filename" {params :params} (endpoint_view (rename-keys params {:* :dir})))
+  (GET "/page/:bucket/*/:filename" {params :params} (endpoint_page (rename-keys params {:* :dir})))
   (mp/wrap-multipart-params
     (POST "/upload" {params :params} (endpoint_upload params)))
-  (GET "/info/:bucket/:dir/:filename" {params :params} (endpoint_info params))
-  (GET "/delete/:bucket/:dir/:filename" {params :params} (endpoint_delete params))
-  (GET "/:bucket/:dir/:filename" {params :params} (endpoint_view params))
+  (GET "/info/:bucket/*/:filename" {params :params} (endpoint_info (rename-keys params {:* :dir})))
+  (GET "/delete/:bucket/*/:filename" {params :params} (endpoint_delete (rename-keys params {:* :dir})))
+  (GET "/:bucket/*/:filename" {params :params} (endpoint_view (rename-keys params {:* :dir})))
   (route/not-found "Page not found"))
 
 (def app

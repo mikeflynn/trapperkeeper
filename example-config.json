@@ -1,0 +1,9 @@
+{
+	"uploads_on": true,
+	"filters_on": true,
+	"base_path": ".",
+	"data_path": "./data",
+	"cach_path": "./cache",
+	"max_upload_size": 5000000,
+	"log_dir": "./logs"
+}

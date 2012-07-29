@@ -27,4 +27,3 @@ To Do
 4. Upload war file.
 5. Add option to have custom filename
 6. Add option to have custom sub-bucket path.
-7. BUG: Allow uppercase extensions!

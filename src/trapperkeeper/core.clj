@@ -134,7 +134,7 @@
         temp-file (fileobj :tempfile)
         file-name (fileobj :filename)
         file-ext (apply str (take-last 1 (string/split file-name #"\.")))
-        new-path (str (get params "bucket") "/" (crc32 file-name) "/" (sha1 (slurp temp-file)) "." file-ext)]
+        new-path (str (get params "bucket") "/" (if (contains? params "custom_path") (get params "custom_path") (crc32 file-name)) "/" (if (contains? params "custom_filename") (get params "custom_filename") (sha1 (slurp temp-file))) "." file-ext)]
         (if (and (<= (fileobj :size) max-filesize) (checkfile temp-file file-name))
           (do
             (make-dir (str data_path "/" new-path))

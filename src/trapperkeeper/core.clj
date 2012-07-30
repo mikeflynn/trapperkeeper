@@ -206,3 +206,7 @@
 
 (def app
   (handler/api main-routes))
+
+(defn init-app []
+  (let [args *command-line-args*]
+    (prn args)))

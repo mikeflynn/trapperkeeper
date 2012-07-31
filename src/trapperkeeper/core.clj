@@ -37,6 +37,20 @@
 (defn make-path [params]
   (string/join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
 
+(defn make-upload-path [params]
+  (str
+    (get params "bucket")
+    "/"
+    (if (contains? params "custom_path")
+      (get params "custom_path")
+      (crc32 file-name))
+    "/"
+    (if (contains? params "custom_filename")
+      (get params "custom_filename")
+      (sha1 (slurp temp-file)))
+    "."
+    file-ext))
+
 (defn make-dir [filepath]
 "Take path and create all the necessary directories."
   (let [dir (string/join "/" (drop-last (string/split filepath #"/")))]
@@ -126,7 +140,23 @@
         (image-output image-filepath))
     {:status 404})))
 
-(defn endpoint_upload [params]
+(defn endpoint_get_upload [params]
+  (try
+    (if (and (contains? params "url") (contains? params "bucket"))
+      (let [
+        url (get params "url")
+        file-ext (apply str (take-last 1 (string/split url #"\.")))
+        new-path (make-upload-path params)
+        dl-file (file url)]
+        (if (and (<= (.length dl-file) max-filesize) (checkfile dl-file url)) ; filesize of input isn't over the limit and the filetype is allowed... 
+          (do
+            (make-dir (str data_path "/" new-path))
+            (io/copy dl-file (file new-path)))
+          (json-output nil "This isn't a valid filetype or is too large for upload."))
+      (json-output nil "No file to process or bucket selected.")))
+    (catch Exception e (json-output nil "Couldn't process file."))))
+
+(defn endpoint_post_upload [params]
   (try
     (if (and (contains? params "filedata") (contains? params "bucket"))
       (let [
@@ -134,7 +164,7 @@
         temp-file (fileobj :tempfile)
         file-name (fileobj :filename)
         file-ext (apply str (take-last 1 (string/split file-name #"\.")))
-        new-path (str (get params "bucket") "/" (if (contains? params "custom_path") (get params "custom_path") (crc32 file-name)) "/" (if (contains? params "custom_filename") (get params "custom_filename") (sha1 (slurp temp-file))) "." file-ext)]
+        new-path (make-upload-path params)]
         (if (and (<= (fileobj :size) max-filesize) (checkfile temp-file file-name))
           (do
             (make-dir (str data_path "/" new-path))
@@ -198,7 +228,8 @@
   (GET "/view/:bucket/*/:filename" {params :params} (endpoint_view (rename-keys params {:* :dir})))
   (GET "/page/:bucket/*/:filename" {params :params} (endpoint_page (rename-keys params {:* :dir})))
   (mp/wrap-multipart-params
-    (POST "/upload" {params :params} (endpoint_upload params)))
+    (POST "/upload" {params :params} (endpoint_post_upload params)))
+  (GET "/upload" {params :params} (endpoint_get_upload params))
   (GET "/info/:bucket/*/:filename" {params :params} (endpoint_info (rename-keys params {:* :dir})))
   (GET "/delete/:bucket/*/:filename" {params :params} (endpoint_delete (rename-keys params {:* :dir})))
   (GET "/:bucket/*/:filename" {params :params} (endpoint_view (rename-keys params {:* :dir})))

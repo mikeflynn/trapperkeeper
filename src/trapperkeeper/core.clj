@@ -26,6 +26,19 @@
 (def allowed-types {:jpg "image/jpeg", :jpeg "image/jpeg", :gif "image/gif", :png "image/png"})
 (def max-filesize 5000000)
 
+(defn crc32 [string]
+  (.getValue (doto (CRC32.) (.update (byte-array (.getBytes string))))))
+
+(defn sha1 [s]
+"https://gist.github.com/1472865"
+  (->> (-> "sha1"
+           java.security.MessageDigest/getInstance
+           (.digest (.getBytes s)))
+       (map #(.substring
+              (Integer/toString
+               (+ (bit-and % 0xff) 0x100) 16) 1))
+       (apply str)))
+
 (defn make-cache-path [params]
   (let [
     dir (string/join "/" [cache_path (:bucket params) (:dir params)])
@@ -37,7 +50,7 @@
 (defn make-path [params]
   (string/join "/" [data_path (:bucket params) (:dir params) (:filename params)]))
 
-(defn make-upload-path [params]
+(defn make-upload-path [params file-name file-contents file-ext]
   (str
     (get params "bucket")
     "/"
@@ -47,7 +60,7 @@
     "/"
     (if (contains? params "custom_filename")
       (get params "custom_filename")
-      (sha1 (slurp temp-file)))
+      (sha1 file-contents))
     "."
     file-ext))
 
@@ -86,19 +99,6 @@
           :body fh
         }))
     (catch Exception e {:status 404})))
-
-(defn crc32 [string]
-  (.getValue (doto (CRC32.) (.update (byte-array (.getBytes string))))))
-
-(defn sha1 [s]
-"https://gist.github.com/1472865"
-  (->> (-> "sha1"
-           java.security.MessageDigest/getInstance
-           (.digest (.getBytes s)))
-       (map #(.substring
-              (Integer/toString
-               (+ (bit-and % 0xff) 0x100) 16) 1))
-       (apply str)))
 
 (defn gen-delete-key [filepath]
   (sha1 (str filepath (* (.length (io/file filepath)) (count filepath)))))
@@ -145,13 +145,14 @@
     (if (and (contains? params "url") (contains? params "bucket"))
       (let [
         url (get params "url")
-        file-ext (apply str (take-last 1 (string/split url #"\.")))
-        new-path (make-upload-path params)
-        dl-file (file url)]
+        file-name (apply str (take-last 1 (string/split url #"/")))
+        file-ext (apply str (take-last 1 (string/split file-name #"\.")))
+        dl-file (io/file url)
+        new-path (make-upload-path params file-name (slurp dl-file) file-ext)]
         (if (and (<= (.length dl-file) max-filesize) (checkfile dl-file url)) ; filesize of input isn't over the limit and the filetype is allowed... 
           (do
             (make-dir (str data_path "/" new-path))
-            (io/copy dl-file (file new-path)))
+            (io/copy dl-file (io/file new-path)))
           (json-output nil "This isn't a valid filetype or is too large for upload."))
       (json-output nil "No file to process or bucket selected.")))
     (catch Exception e (json-output nil "Couldn't process file."))))
@@ -164,7 +165,7 @@
         temp-file (fileobj :tempfile)
         file-name (fileobj :filename)
         file-ext (apply str (take-last 1 (string/split file-name #"\.")))
-        new-path (make-upload-path params)]
+        new-path (make-upload-path params file-name (slurp temp-file) file-ext)]
         (if (and (<= (fileobj :size) max-filesize) (checkfile temp-file file-name))
           (do
             (make-dir (str data_path "/" new-path))

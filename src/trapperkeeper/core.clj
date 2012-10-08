@@ -2,6 +2,7 @@
   (:use [compojure.core]
         [cheshire.core]
         [clojure.set :only [rename-keys]]
+        [clojure.walk :only [keywordize-keys]]
         [clojure.tools.logging :only [info error]]
         [clojure.java.shell :only [sh]])
   (:require [clojure.java.io :as io]
@@ -52,14 +53,14 @@
 
 (defn make-upload-path [params file-name file-contents file-ext]
   (str
-    (get params "bucket")
+    (get params :bucket)
     "/"
-    (if (contains? params "custom_path")
-      (get params "custom_path")
+    (if (contains? params :custom_path)
+      (get params :custom_path)
       (crc32 file-name))
     "/"
-    (if (contains? params "custom_filename")
-      (get params "custom_filename")
+    (if (contains? params :custom_filename)
+      (get params :custom_filename)
       (sha1 file-contents))
     "."
     file-ext))
@@ -70,6 +71,19 @@
     (if (= 0 (:exit (sh "mkdir" "-p" dir)))
       (boolean true)
       (boolean false))))
+
+(defn dl-to-temp [url]
+  (let [
+    temp-dir (io/file (System/getProperty "java.io.tmpdir"))
+    temp-file (str "trapperkeeper-tmp-file-" (System/currentTimeMillis) "-" (long (rand 1000000000)))
+    temp-path (str temp-dir "/" temp-file)]
+    (try
+      (with-open [
+        in (io/input-stream url)
+        out (io/output-stream temp-path)]
+        (io/copy in out))
+      temp-path
+    (catch Exception e false))))
 
 (defn content-type [filepath]
   (let [extension (string/lower-case (apply str (take-last 1 (string/split filepath #"\."))))]
@@ -141,27 +155,33 @@
     {:status 404})))
 
 (defn endpoint_get_upload [params]
+"Upload via GET params"
   (try
-    (if (and (contains? params "url") (contains? params "bucket"))
+    (if (and (contains? params :url) (contains? params :bucket))
       (let [
-        url (get params "url")
+        url (get params :url)
         file-name (apply str (take-last 1 (string/split url #"/")))
         file-ext (apply str (take-last 1 (string/split file-name #"\.")))
-        dl-file (io/file url)
-        new-path (make-upload-path params file-name (slurp dl-file) file-ext)]
+        dl-file (io/file (dl-to-temp url))
+        new-path (make-upload-path params file-name (slurp url) file-ext)]
         (if (and (<= (.length dl-file) max-filesize) (checkfile dl-file url)) ; filesize of input isn't over the limit and the filetype is allowed... 
           (do
             (make-dir (str data_path "/" new-path))
-            (io/copy dl-file (io/file new-path)))
-          (json-output nil "This isn't a valid filetype or is too large for upload."))
+            (io/copy dl-file (io/file (str data_path "/" new-path)))
+            (json-output {
+              (keyword file-name) {
+                :url (str "/" new-path)
+              }} nil))
+          (json-output nil "This isn't a valid filetype or is too large for upload.")))
       (json-output nil "No file to process or bucket selected.")))
     (catch Exception e (json-output nil "Couldn't process file."))))
 
 (defn endpoint_post_upload [params]
+"Upload via POST params"
   (try
-    (if (and (contains? params "filedata") (contains? params "bucket"))
+    (if (and (contains? params :filedata) (contains? params :bucket))
       (let [
-        fileobj (get params "filedata")
+        fileobj (get params :filedata)
         temp-file (fileobj :tempfile)
         file-name (fileobj :filename)
         file-ext (apply str (take-last 1 (string/split file-name #"\.")))
@@ -228,9 +248,9 @@
   (GET "/view:filter/:bucket/*/:filename" {params :params} (endpoint_view (merge params {:filter (apply str (drop 1 (:filter (rename-keys params {:* :dir}))))})))
   (GET "/view/:bucket/*/:filename" {params :params} (endpoint_view (rename-keys params {:* :dir})))
   (GET "/page/:bucket/*/:filename" {params :params} (endpoint_page (rename-keys params {:* :dir})))
-  (mp/wrap-multipart-params
-    (POST "/upload" {params :params} (endpoint_post_upload params)))
   (GET "/upload" {params :params} (endpoint_get_upload params))
+  (mp/wrap-multipart-params
+    (POST "/upload" {params :params} (endpoint_post_upload (keywordize-keys params))))
   (GET "/info/:bucket/*/:filename" {params :params} (endpoint_info (rename-keys params {:* :dir})))
   (GET "/delete/:bucket/*/:filename" {params :params} (endpoint_delete (rename-keys params {:* :dir})))
   (GET "/:bucket/*/:filename" {params :params} (endpoint_view (rename-keys params {:* :dir})))

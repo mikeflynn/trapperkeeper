@@ -3,7 +3,7 @@
   :url "https://github.com/mikeflynn/trapperkeeper"
   :aot [trapperkeeper.core]
   :dependencies [[org.clojure/clojure "1.3.0"]
-                [compojure "1.1.1"]
+                [compojure "1.1.3"]
                 [log4j "1.2.16"]
                 [org.clojure/tools.logging "0.2.3"]
                 [cheshire "4.0.0"]]

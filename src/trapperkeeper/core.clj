@@ -173,7 +173,7 @@
                 :url (str "/" new-path)
               }} nil))
           (json-output nil "This isn't a valid filetype or is too large for upload.")))
-      (json-output nil "No file to process or bucket selected.")))
+      (json-output nil "No file to process or bucket selected."))
     (catch Exception e (json-output nil "Couldn't process file."))))
 
 (defn endpoint_post_upload [params]

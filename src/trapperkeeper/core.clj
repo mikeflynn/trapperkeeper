@@ -170,7 +170,8 @@
             (io/copy dl-file (io/file (str data_path "/" new-path)))
             (json-output {
               (keyword file-name) {
-                :url (str "/" new-path)
+                :url (str "/" new-path),
+                :delete_key (gen-delete-key new-path)
               }} nil))
           (json-output nil "This isn't a valid filetype or is too large for upload.")))
       (json-output nil "No file to process or bucket selected."))
@@ -192,7 +193,8 @@
             (io/copy temp-file (io/file (str data_path "/" new-path)))
             (json-output {
               (keyword file-name) {
-                :url (str "/" new-path)
+                :url (str "/" new-path),
+                :delete_key (gen-delete-key new-path)
               }} nil))
           (do
             (json-output nil "This isn't a valid filetype or is too large for upload."))))
@@ -213,8 +215,7 @@
           :url (str "/view:thumb/" (:bucket params) "/" (:dir params) "/" (:filename params)),
           :width "250",
           :height "250"
-        },
-        :delete_key (gen-delete-key filepath)
+        }
       } nil))
     (catch Exception e (json-output nil "File not found."))))
 
